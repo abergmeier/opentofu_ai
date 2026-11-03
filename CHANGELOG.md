@@ -2,6 +2,21 @@ The v1.13.x release series is supported until **August 1 2027**.
 
 ## 1.13.5 (Unreleased)
 
+# 1.13.4+ai
+
+UPGRADE NOTES:
+
+- `list` is now a reserved reference prefix, so a managed resource type literally named `list` must be referenced as `resource.list.<name>`.
+
+ENHANCEMENTS:
+
+- Added `list` blocks, which query a provider (plugin protocol 6.10 `ListResource`) for existing remote objects during `tofu plan` and `tofu apply`. The result is available as `list.<type>.<name>.data`, a list of objects with `display_name`, `identity` and, when `include_resource = true`, `state`. A `list` block supports `provider`, `depends_on`, `limit` (default 100), `include_resource` and a `config` block.
+- `import` blocks now support `lifecycle { enabled = ... }`, and the import is skipped when it evaluates to `false`. Together with `list` blocks this allows importing an object only if the provider found it, for example `identity = list.<type>.<name>.data[0].identity` with `enabled = length(list.<type>.<name>.data) != 0`.
+
+BUG FIXES:
+
+- References in the `identity` argument of `import` blocks are now taken into account when ordering the graph, so they can refer to other objects such as `list` blocks.
+
 ## 1.13.4
 
 BUG FIXES:
