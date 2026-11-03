@@ -10,10 +10,6 @@ on:
         description: "Release as latest?"
         required: true
         type: boolean
-      prerelease:
-        description: "Release as prerelease?"
-        required: true
-        type: boolean
 
 jobs:
   release:
@@ -67,7 +63,7 @@ jobs:
       - name: Check if release is allowed or not
         id: validate_release
         env:
-          IS_PRERELEASE: ${{ inputs.prerelease }}
+          IS_PRERELEASE: true
           IS_TAG_ON_MAIN: ${{ steps.validate_tag.outputs.IS_TAG_ON_MAIN }}
         run: |
           if [[ "$IS_PRERELEASE" == "false" && "$IS_TAG_ON_MAIN" == "true" ]]; then
@@ -125,7 +121,7 @@ jobs:
           GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_TOKEN }}
           RELEASE_FLAG_LATEST: ${{ inputs.latest }}
-          RELEASE_FLAG_PRERELEASE: ${{ inputs.prerelease }}
+          RELEASE_FLAG_PRERELEASE: true
           # This causes version.IsOfficialBuild to return true when someone is
           # running one of our official release builds.
           BUILD_OPENTOFU_OFFICIAL: '1'
@@ -143,23 +139,3 @@ jobs:
         with:
           name: dist
           path: dist
-
-      - name: Upload Debian packages to PackageCloud
-        if: startsWith(inputs.tag, 'v') && ! inputs.prerelease
-        uses: computology/packagecloud-github-action@3a3116159414e57767827ed264a6de29a1f86d4c # v0.6
-        with:
-                PACKAGE-NAME: dist/*.deb
-                PACKAGECLOUD-USERNAME: opentofu
-                PACKAGECLOUD-REPONAME: tofu
-                PACKAGECLOUD-DISTRO: any/any
-                PACKAGECLOUD-TOKEN: ${{ secrets.PACKAGECLOUD_TOKEN }}
-      - name: Upload RPM packages to PackageCloud
-        if: startsWith(inputs.tag, 'v') && ! inputs.prerelease
-        uses: computology/packagecloud-github-action@3a3116159414e57767827ed264a6de29a1f86d4c # v0.6
-        with:
-                PACKAGE-NAME: dist/*.rpm
-                PACKAGECLOUD-USERNAME: opentofu
-                PACKAGECLOUD-REPONAME: tofu
-                PACKAGECLOUD-DISTRO: rpm_any/rpm_any
-                PACKAGECLOUD-TOKEN: ${{ secrets.PACKAGECLOUD_TOKEN }}
-
