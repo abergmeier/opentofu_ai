@@ -224,6 +224,13 @@ func loadConfigFileBody(body hcl.Body, _ string, override bool) (*File, hcl.Diag
 				file.EphemeralResources = append(file.EphemeralResources, cfg)
 			}
 
+		case "list":
+			cfg, cfgDiags := decodeListBlock(block)
+			diags = append(diags, cfgDiags...)
+			if cfg != nil {
+				file.ListResources = append(file.ListResources, cfg)
+			}
+
 		case "moved":
 			cfg, cfgDiags := decodeMovedBlock(block)
 			diags = append(diags, cfgDiags...)
@@ -311,6 +318,10 @@ var configFileSchema = &hcl.BodySchema{
 		},
 		{
 			Type:       "ephemeral",
+			LabelNames: []string{"type", "name"},
+		},
+		{
+			Type:       "list",
 			LabelNames: []string{"type", "name"},
 		},
 		{

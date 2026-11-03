@@ -70,6 +70,9 @@ type Evaluator struct {
 	// ensures they can be safely accessed and modified concurrently.
 	Changes *plans.ChangesSync
 
+	// ListResults holds the results of "list" blocks queried during the walk.
+	ListResults *ListResultStore
+
 	PlanTimestamp time.Time
 }
 
@@ -705,6 +708,10 @@ func (d *evaluationStateData) GetResource(ctx context.Context, addr addrs.Resour
 		return cty.DynamicVal, diags
 	}
 
+	if addr.Mode == addrs.ListResourceMode {
+		return d.getListResource(ctx, addr, config), diags
+	}
+
 	// Build the provider address from configuration, since we may not have
 	// state available in all cases.
 	// We need to build an abs provider address, but we can use a default
@@ -996,6 +1003,24 @@ func markedValueBySchema(addr addrs.AbsResourceInstance, schema *configschema.Bl
 	}
 	combined := combinePathValueMarks(valMarks, schemaMarks)
 	return val.MarkWithPaths(combined)
+}
+
+// getListResource returns the value of a "list" block. Until the block has
+// been queried (for example during validation) the result is unknown.
+func (d *evaluationStateData) getListResource(ctx context.Context, addr addrs.Resource, config *configs.Resource) cty.Value {
+	if val, ok := d.Evaluator.ListResults.Get(addr.Absolute(d.ModulePath)); ok {
+		return val
+	}
+
+	providerSchema, diags := d.Evaluator.Plugins.providers.GetProviderSchema(ctx, config.Provider)
+	if diags.HasErrors() {
+		return cty.DynamicVal
+	}
+	resSchema, ok := providerSchema.ResourceTypes[addr.Type]
+	if !ok {
+		return cty.DynamicVal
+	}
+	return cty.UnknownVal(listResultValueType(resSchema))
 }
 
 func (d *evaluationStateData) getResourceSchema(ctx context.Context, addr addrs.Resource, providerAddr addrs.Provider) *configschema.Block {

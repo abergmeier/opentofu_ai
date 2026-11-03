@@ -37,6 +37,7 @@ type ContextGraphWalker struct {
 	Checks                  *checks.State           // Used for safe concurrent writes of checkable objects and their check results
 	InstanceExpander        *instances.Expander     // Tracks our gradual expansion of module and resource instances
 	ImportResolver          *ImportResolver         // Tracks import targets as they are being resolved
+	ListResults             *ListResultStore        // Holds the results of list blocks as they are queried
 	MoveResults             refactoring.MoveResults // Read-only record of earlier processing of move statements
 	Operation               walkOperation
 	StopContext             context.Context
@@ -89,6 +90,7 @@ func (w *ContextGraphWalker) EvalContext() EvalContext {
 		Operation:          w.Operation,
 		State:              w.State,
 		Changes:            w.Changes,
+		ListResults:        w.ListResults,
 		Plugins:            w.Context.plugins,
 		VariableValues:     w.variableValues,
 		VariableValuesLock: &w.variableValuesLock,

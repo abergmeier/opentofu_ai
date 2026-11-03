@@ -7,6 +7,7 @@ package providers
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/zclconf/go-cty/cty"
@@ -44,6 +45,10 @@ type Unconfigured interface {
 	// ValidateEphemeralConfig allows the provider to validate the ephemeral resource
 	// configuration values.
 	ValidateEphemeralConfig(context.Context, ValidateEphemeralConfigRequest) ValidateEphemeralConfigResponse
+
+	// ValidateListResourceConfig allows the provider to validate the list resource
+	// configuration values.
+	ValidateListResourceConfig(context.Context, ValidateListResourceConfigRequest) ValidateListResourceConfigResponse
 
 	// MoveResourceState requests that the given resource data be moved from one
 	// type to another, potentially between providers as well.
@@ -123,6 +128,10 @@ type Configured interface {
 	// ReadDataSource returns the data source's current state.
 	ReadDataSource(context.Context, ReadDataSourceRequest) ReadDataSourceResponse
 
+	// ListResource queries the provider for existing remote objects of a
+	// managed resource type and returns all of the results.
+	ListResource(context.Context, ListResourceRequest) ListResourceResponse
+
 	// OpenEphemeralResource opens the provided ephemeral resource.
 	// This is meant to return the following:
 	// * the ephemeral information that will be used in other ephemeral contexts.
@@ -190,6 +199,11 @@ type GetProviderSchemaResponse struct {
 
 	// EphemeralResources maps the ephemeral type name to that type's schema.
 	EphemeralResources map[string]Schema
+
+	// ListResources maps the list resource type name to the schema of its
+	// "config" block. The type name matches the managed resource type whose
+	// instances are listed.
+	ListResources map[string]Schema
 }
 
 type ResourceIdentitySchema struct {
@@ -330,6 +344,61 @@ type ValidateEphemeralConfigRequest struct {
 }
 
 type ValidateEphemeralConfigResponse struct {
+	// Diagnostics contains any warnings or errors from the method call.
+	Diagnostics tfdiags.Diagnostics
+}
+
+type ValidateListResourceConfigRequest struct {
+	// TypeName is the name of the list resource type to validate.
+	TypeName string
+
+	// Config is the value of the "config" block, which may contain unknown values.
+	Config cty.Value
+
+	// IncludeResourceObject is a cty.Bool value that may be unknown.
+	IncludeResourceObject cty.Value
+
+	// Limit is a cty.Number value that may be unknown.
+	Limit cty.Value
+}
+
+type ValidateListResourceConfigResponse struct {
+	// Diagnostics contains any warnings or errors from the method call.
+	Diagnostics tfdiags.Diagnostics
+}
+
+type ListResourceRequest struct {
+	// TypeName is the name of the list resource type to query.
+	TypeName string
+
+	// Config is the fully-known value of the "config" block.
+	Config cty.Value
+
+	// IncludeResourceObject asks the provider to also return the full
+	// resource object for each result.
+	IncludeResourceObject bool
+
+	// Limit is the maximum number of results wanted.
+	Limit int64
+}
+
+// ListResourceResult describes one remote object found by a list request.
+type ListResourceResult struct {
+	// Identity is the resource identity of the object, or cty.NilVal if the
+	// provider didn't return one.
+	Identity cty.Value
+
+	// DisplayName is a human-readable name for the object.
+	DisplayName string
+
+	// ResourceObject is the full object, or cty.NilVal unless requested.
+	ResourceObject cty.Value
+}
+
+type ListResourceResponse struct {
+	// Results are the objects found, in the order the provider returned them.
+	Results []ListResourceResult
+
 	// Diagnostics contains any warnings or errors from the method call.
 	Diagnostics tfdiags.Diagnostics
 }
@@ -758,4 +827,15 @@ type CallFunctionArgumentError struct {
 
 func (err *CallFunctionArgumentError) Error() string {
 	return err.Text
+}
+
+// ListResourceUnsupportedDiags returns the diagnostics that a provider
+// implementation without list resource support should return from its
+// list-related methods.
+func ListResourceUnsupportedDiags(typeName string) tfdiags.Diagnostics {
+	return tfdiags.Diagnostics{}.Append(tfdiags.Sourceless(
+		tfdiags.Error,
+		"List resources are not supported",
+		fmt.Sprintf("This provider does not support list resources, so the list resource type %q cannot be used.", typeName),
+	))
 }

@@ -171,6 +171,10 @@ type EvalContext interface {
 	// and have a configuration
 	ImportResolver() *ImportResolver
 
+	// ListResults returns the store holding the results of the "list" blocks
+	// queried so far during the current graph walk.
+	ListResults() *ListResultStore
+
 	// WithPath returns a copy of the context with the internal path set to the
 	// path argument.
 	WithPath(path addrs.ModuleInstance) EvalContext

@@ -155,6 +155,7 @@ func (c *Context) graphWalker(operation walkOperation, opts *graphWalkOpts) *Con
 		InstanceExpander:        instances.NewExpander(),
 		MoveResults:             opts.MoveResults,
 		ImportResolver:          NewImportResolver(),
+		ListResults:             NewListResultStore(),
 		Operation:               operation,
 		StopContext:             c.runContext,
 		PlanTimestamp:           opts.PlanTimeTimestamp,

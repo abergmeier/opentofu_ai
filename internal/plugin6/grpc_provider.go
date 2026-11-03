@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 
 	plugin "github.com/hashicorp/go-plugin"
 	"github.com/zclconf/go-cty/cty"
@@ -113,6 +114,7 @@ func (p *GRPCProvider) getProviderSchema(ctx context.Context) (resp providers.Ge
 	resp.ResourceTypes = make(map[string]providers.Schema)
 	resp.DataSources = make(map[string]providers.Schema)
 	resp.EphemeralResources = make(map[string]providers.Schema)
+	resp.ListResources = make(map[string]providers.Schema)
 	resp.Functions = make(map[string]providers.FunctionSpec)
 
 	protoResp, err := p.getProtoProviderSchema(ctx)
@@ -156,6 +158,10 @@ func (p *GRPCProvider) getProviderSchema(ctx context.Context) (resp providers.Ge
 	for name, res := range protoResp.EphemeralResourceSchemas {
 		// Ephemeral resources should be able to work with ephemeral values by design.
 		resp.EphemeralResources[name] = convert.ProtoToEphemeralProviderSchema(res)
+	}
+
+	for name, res := range protoResp.ListResourceSchemas {
+		resp.ListResources[name] = convert.ProtoToProviderSchema(res)
 	}
 
 	identitySchemas, idsDiags := p.getResourceIdentitySchemas(ctx)
@@ -1006,6 +1012,140 @@ func (p *GRPCProvider) ReadDataSource(ctx context.Context, r providers.ReadDataS
 	return resp
 }
 
+func (p *GRPCProvider) ValidateListResourceConfig(ctx context.Context, r providers.ValidateListResourceConfigRequest) (resp providers.ValidateListResourceConfigResponse) {
+	logger.Trace("GRPCProvider.v6: ValidateListResourceConfig")
+
+	schema := p.GetProviderSchema(ctx)
+	if schema.Diagnostics.HasErrors() {
+		resp.Diagnostics = schema.Diagnostics
+		return resp
+	}
+
+	listSchema, ok := schema.ListResources[r.TypeName]
+	if !ok {
+		resp.Diagnostics = resp.Diagnostics.Append(fmt.Errorf("unknown list resource %q", r.TypeName))
+		return resp
+	}
+
+	config, err := msgpack.Marshal(r.Config, listSchema.Block.ImpliedType())
+	if err != nil {
+		resp.Diagnostics = resp.Diagnostics.Append(err)
+		return resp
+	}
+	protoReq := &proto6.ValidateListResourceConfig_Request{
+		TypeName: r.TypeName,
+		Config:   &proto6.DynamicValue{Msgpack: config},
+	}
+
+	if r.IncludeResourceObject != cty.NilVal {
+		mp, err := msgpack.Marshal(r.IncludeResourceObject, cty.Bool)
+		if err != nil {
+			resp.Diagnostics = resp.Diagnostics.Append(err)
+			return resp
+		}
+		protoReq.IncludeResourceObject = &proto6.DynamicValue{Msgpack: mp}
+	}
+	if r.Limit != cty.NilVal {
+		mp, err := msgpack.Marshal(r.Limit, cty.Number)
+		if err != nil {
+			resp.Diagnostics = resp.Diagnostics.Append(err)
+			return resp
+		}
+		protoReq.Limit = &proto6.DynamicValue{Msgpack: mp}
+	}
+
+	protoResp, err := p.client.ValidateListResourceConfig(ctx, protoReq)
+	if err != nil {
+		resp.Diagnostics = resp.Diagnostics.Append(grpcErr(err))
+		return resp
+	}
+	resp.Diagnostics = resp.Diagnostics.Append(convert.ProtoToDiagnostics(protoResp.Diagnostics))
+	return resp
+}
+
+func (p *GRPCProvider) ListResource(ctx context.Context, r providers.ListResourceRequest) (resp providers.ListResourceResponse) {
+	logger.Trace("GRPCProvider.v6: ListResource")
+
+	schema := p.GetProviderSchema(ctx)
+	if schema.Diagnostics.HasErrors() {
+		resp.Diagnostics = schema.Diagnostics
+		return resp
+	}
+
+	listSchema, ok := schema.ListResources[r.TypeName]
+	if !ok {
+		resp.Diagnostics = resp.Diagnostics.Append(fmt.Errorf("unknown list resource %q", r.TypeName))
+		return resp
+	}
+	// List results describe objects of the managed resource type with the same name.
+	resSchema, ok := schema.ResourceTypes[r.TypeName]
+	if !ok {
+		resp.Diagnostics = resp.Diagnostics.Append(fmt.Errorf("list resource %q has no matching managed resource type", r.TypeName))
+		return resp
+	}
+
+	config, err := msgpack.Marshal(r.Config, listSchema.Block.ImpliedType())
+	if err != nil {
+		resp.Diagnostics = resp.Diagnostics.Append(err)
+		return resp
+	}
+
+	// Cancelling the stream context releases the stream if we stop reading early.
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	stream, err := p.client.ListResource(ctx, &proto6.ListResource_Request{
+		TypeName:              r.TypeName,
+		Config:                &proto6.DynamicValue{Msgpack: config},
+		IncludeResourceObject: r.IncludeResourceObject,
+		Limit:                 r.Limit,
+	})
+	if err != nil {
+		resp.Diagnostics = resp.Diagnostics.Append(grpcErr(err))
+		return resp
+	}
+
+	for {
+		event, err := stream.Recv()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			resp.Diagnostics = resp.Diagnostics.Append(grpcErr(err))
+			return resp
+		}
+
+		eventDiags := convert.ProtoToDiagnostics(event.Diagnostic)
+		resp.Diagnostics = resp.Diagnostics.Append(eventDiags)
+		if eventDiags.HasErrors() {
+			continue
+		}
+
+		result := providers.ListResourceResult{DisplayName: event.DisplayName}
+
+		if event.Identity != nil && event.Identity.IdentityData != nil && resSchema.IdentitySchema != nil {
+			identity, err := decodeDynamicValue(event.Identity.IdentityData, resSchema.IdentitySchema.ImpliedType())
+			if err != nil {
+				resp.Diagnostics = resp.Diagnostics.Append(err)
+				continue
+			}
+			result.Identity = identity
+		}
+
+		if event.ResourceObject != nil {
+			obj, err := decodeDynamicValue(event.ResourceObject, resSchema.Block.ImpliedType())
+			if err != nil {
+				resp.Diagnostics = resp.Diagnostics.Append(err)
+				continue
+			}
+			result.ResourceObject = obj
+		}
+
+		resp.Results = append(resp.Results, result)
+	}
+
+	return resp
+}
 func (p *GRPCProvider) OpenEphemeralResource(ctx context.Context, r providers.OpenEphemeralResourceRequest) (resp providers.OpenEphemeralResourceResponse) {
 	logger.Trace("GRPCProvider.v6: OpenEphemeralResource")
 

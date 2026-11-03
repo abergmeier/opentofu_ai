@@ -31,6 +31,8 @@ func (r Resource) String() string {
 		return fmt.Sprintf("data.%s.%s", r.Type, r.Name)
 	case EphemeralResourceMode:
 		return fmt.Sprintf("ephemeral.%s.%s", r.Type, r.Name)
+	case ListResourceMode:
+		return fmt.Sprintf("list.%s.%s", r.Type, r.Name)
 	default:
 		// Should never happen, but we'll return a string here rather than
 		// crashing just in case it does.
@@ -574,10 +576,14 @@ const (
 	// EphemeralResourceMode indicates an ephemeral resource, as defined by
 	// the "ephemeral" blocks in configuration.
 	EphemeralResourceMode ResourceMode = 'E'
+
+	// ListResourceMode indicates a list resource, as defined by the "list"
+	// blocks in configuration.
+	ListResourceMode ResourceMode = 'L'
 )
 
 // ResourceModeLess is comparing two ResourceMode.
-// The ranking is as follows: EphemeralResourceMode, DataResourceMode, ManagedResourceMode.
+// The ranking is as follows: ListResourceMode, EphemeralResourceMode, DataResourceMode, ManagedResourceMode.
 func ResourceModeLess(a, b ResourceMode) bool {
 	switch a {
 	case ManagedResourceMode:
@@ -586,6 +592,8 @@ func ResourceModeLess(a, b ResourceMode) bool {
 		return b == ManagedResourceMode // DataResourceMode is always lower than ManagedResourceMode
 	case EphemeralResourceMode:
 		return b == ManagedResourceMode || b == DataResourceMode // EphemeralResourceMode is always lower than ManagedResourceMode and DataResourceMode
+	case ListResourceMode:
+		return b != ListResourceMode // ListResourceMode is always lower than every other mode
 	}
 	return false
 }
@@ -601,6 +609,8 @@ func ResourceModeBlockName(rm ResourceMode) string {
 		return "data"
 	case EphemeralResourceMode:
 		return "ephemeral"
+	case ListResourceMode:
+		return "list"
 	default:
 		return "unknown"
 	}

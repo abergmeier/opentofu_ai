@@ -343,6 +343,17 @@ func (p *GRPCProvider) ValidateDataResourceConfig(ctx context.Context, r provide
 	return resp
 }
 
+// The v5 protocol version supported here predates list resources.
+func (p *GRPCProvider) ValidateListResourceConfig(_ context.Context, r providers.ValidateListResourceConfigRequest) (resp providers.ValidateListResourceConfigResponse) {
+	resp.Diagnostics = providers.ListResourceUnsupportedDiags(r.TypeName)
+	return resp
+}
+
+func (p *GRPCProvider) ListResource(_ context.Context, r providers.ListResourceRequest) (resp providers.ListResourceResponse) {
+	resp.Diagnostics = providers.ListResourceUnsupportedDiags(r.TypeName)
+	return resp
+}
+
 func (p *GRPCProvider) ValidateEphemeralConfig(ctx context.Context, r providers.ValidateEphemeralConfigRequest) (resp providers.ValidateEphemeralConfigResponse) {
 	logger.Trace("GRPCProvider: ValidateEphemeralConfig")
 

@@ -221,6 +221,18 @@ func (ri *ImportResolver) ExpandAndResolveImport(ctx context.Context, importTarg
 	// relative to the root module
 	rootCtx := evalCtx.WithPath(addrs.RootModuleInstance)
 
+	if importTarget.Config.Enabled != nil {
+		enabled, enabledDiags := evaluateEnabledExpression(ctx, importTarget.Config.Enabled, rootCtx)
+		diags = diags.Append(enabledDiags)
+		if diags.HasErrors() {
+			return diags
+		}
+		if !enabled {
+			log.Printf("[TRACE] importResolver: skipping import block at %s because lifecycle.enabled is false", importTarget.Config.DeclRange)
+			return diags
+		}
+	}
+
 	if importTarget.Config.ForEach != nil {
 		const unknownsNotAllowed = false
 		const tupleAllowed = true

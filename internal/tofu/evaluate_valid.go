@@ -203,6 +203,8 @@ func (d *evaluationStateData) staticValidateResourceReference(ctx context.Contex
 		modeAdjective = "data"
 	case addrs.EphemeralResourceMode:
 		modeAdjective = "ephemeral"
+	case addrs.ListResourceMode:
+		modeAdjective = "list"
 	default:
 		// should never happen
 		modeAdjective = "<invalid-mode>"
@@ -234,6 +236,12 @@ func (d *evaluationStateData) staticValidateResourceReference(ctx context.Contex
 
 	// TODO: Plugin a suitable context.Context through to here.
 	providerFqn := modCfg.Module.ProviderForLocalConfig(cfg.ProviderConfigAddr())
+	if addr.Mode == addrs.ListResourceMode {
+		// The value of a list resource is a fixed-shape object of results rather
+		// than an object described by the provider's schema, so there is
+		// nothing further to check statically.
+		return diags
+	}
 	schema, _, moreDiags := d.Evaluator.Plugins.ResourceTypeSchema(ctx, providerFqn, addr.Mode, addr.Type)
 	diags = diags.Append(moreDiags)
 	if moreDiags.HasErrors() {

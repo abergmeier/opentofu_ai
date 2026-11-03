@@ -425,6 +425,7 @@ func (c *Config) addProviderRequirements(reqs getproviders.Requirements, qualifs
 	c.collectImplicitProviders(c.Module.ManagedResources, reqs, qualifs)
 	c.collectImplicitProviders(c.Module.DataResources, reqs, qualifs)
 	c.collectImplicitProviders(c.Module.EphemeralResources, reqs, qualifs)
+	c.collectImplicitProviders(c.Module.ListResources, reqs, qualifs)
 
 	// Import blocks that are generating config may also have a custom provider
 	// meta argument. Like the provider meta argument used in resource blocks,

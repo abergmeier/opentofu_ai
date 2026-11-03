@@ -6,6 +6,7 @@
 package configs
 
 import (
+	"fmt"
 	"sort"
 
 	"github.com/hashicorp/hcl/v2"
@@ -52,6 +53,10 @@ type Import struct {
 	ResolvedTo *addrs.AbsResourceInstance
 
 	ForEach hcl.Expression
+
+	// Enabled is the optional "lifecycle { enabled = ... }" expression. When it
+	// evaluates to false the import block is ignored entirely.
+	Enabled hcl.Expression
 
 	ProviderConfigRef *ProviderConfigRef
 	Provider          addrs.Provider
@@ -131,6 +136,26 @@ func decodeImportBlock(block *hcl.Block) (*Import, hcl.Diagnostics) {
 		imp.ForEach = attr.Expr
 	}
 
+	var seenLifecycle *hcl.Block
+	for _, lcBlock := range content.Blocks {
+		if seenLifecycle != nil {
+			diags = append(diags, &hcl.Diagnostic{
+				Severity: hcl.DiagError,
+				Summary:  "Duplicate lifecycle block",
+				Detail:   fmt.Sprintf("This import block already has a lifecycle block at %s.", seenLifecycle.DefRange),
+				Subject:  lcBlock.DefRange.Ptr(),
+			})
+			continue
+		}
+		seenLifecycle = lcBlock
+
+		lcContent, lcDiags := lcBlock.Body.Content(importLifecycleBlockSchema)
+		diags = append(diags, lcDiags...)
+		if attr, exists := lcContent.Attributes["enabled"]; exists {
+			imp.Enabled = attr.Expr
+		}
+	}
+
 	// We need at least one of ID or Identity to be set
 	if !idExists && !identityExists {
 		diags = append(diags, &hcl.Diagnostic{
@@ -183,6 +208,15 @@ var importBlockSchema = &hcl.BodySchema{
 		{
 			Name: "for_each",
 		},
+	},
+	Blocks: []hcl.BlockHeaderSchema{
+		{Type: "lifecycle"},
+	},
+}
+
+var importLifecycleBlockSchema = &hcl.BodySchema{
+	Attributes: []hcl.AttributeSchema{
+		{Name: "enabled"},
 	},
 }
 

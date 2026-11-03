@@ -330,6 +330,12 @@ func (n *NodeAbstractResource) RootReferences() []*addrs.Reference {
 
 		refs, _ = lang.ReferencesInExpr(addrs.ParseRef, importTarget.Config.ID)
 		root = append(root, refs...)
+
+		refs, _ = lang.ReferencesInExpr(addrs.ParseRef, importTarget.Config.Identity)
+		root = append(root, refs...)
+
+		refs, _ = lang.ReferencesInExpr(addrs.ParseRef, importTarget.Config.Enabled)
+		root = append(root, refs...)
 	}
 
 	return root

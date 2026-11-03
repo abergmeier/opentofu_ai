@@ -101,7 +101,7 @@ func (t *ConfigTransformer) transformSingle(g *Graph, config *configs.Config, ge
 	module := config.Module
 	log.Printf("[TRACE] ConfigTransformer: Starting for path: %v", path)
 
-	allResources := make([]*configs.Resource, 0, len(module.ManagedResources)+len(module.DataResources)+len(module.EphemeralResources))
+	allResources := make([]*configs.Resource, 0, len(module.ManagedResources)+len(module.DataResources)+len(module.EphemeralResources)+len(module.ListResources))
 	for _, r := range module.ManagedResources {
 		allResources = append(allResources, r)
 	}
@@ -109,6 +109,9 @@ func (t *ConfigTransformer) transformSingle(g *Graph, config *configs.Config, ge
 		allResources = append(allResources, r)
 	}
 	for _, r := range module.EphemeralResources {
+		allResources = append(allResources, r)
+	}
+	for _, r := range module.ListResources {
 		allResources = append(allResources, r)
 	}
 
@@ -165,7 +168,10 @@ func (t *ConfigTransformer) transformSingle(g *Graph, config *configs.Config, ge
 		}
 
 		var node dag.Vertex = abstract
-		if f := t.Concrete; f != nil {
+		if relAddr.Mode == addrs.ListResourceMode {
+			// List blocks only ever query a provider, so every walk shares one node type.
+			node = &nodeExpandListResource{NodeAbstractResource: abstract}
+		} else if f := t.Concrete; f != nil {
 			node = f(abstract)
 		}
 

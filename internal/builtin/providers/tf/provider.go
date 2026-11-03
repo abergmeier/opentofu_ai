@@ -78,6 +78,18 @@ func (p *Provider) ValidateDataResourceConfig(_ context.Context, req providers.V
 	return res
 }
 
+// ValidateListResourceConfig is not supported, since the terraform provider has no list resources.
+func (p *Provider) ValidateListResourceConfig(_ context.Context, req providers.ValidateListResourceConfigRequest) (resp providers.ValidateListResourceConfigResponse) {
+	resp.Diagnostics = providers.ListResourceUnsupportedDiags(req.TypeName)
+	return resp
+}
+
+// ListResource is not supported, since the terraform provider has no list resources.
+func (p *Provider) ListResource(_ context.Context, req providers.ListResourceRequest) (resp providers.ListResourceResponse) {
+	resp.Diagnostics = providers.ListResourceUnsupportedDiags(req.TypeName)
+	return resp
+}
+
 // ValidateEphemeralConfig is used to validate the ephemeral resource configuration values.
 func (p *Provider) ValidateEphemeralConfig(context.Context, providers.ValidateEphemeralConfigRequest) providers.ValidateEphemeralConfigResponse {
 	panic("Should not be called directly, special case for terraform_remote_state")

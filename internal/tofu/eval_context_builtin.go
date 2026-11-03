@@ -457,3 +457,7 @@ func (c *BuiltinEvalContext) ImportResolver() *ImportResolver {
 func (c *BuiltinEvalContext) GetEncryption() encryption.Encryption {
 	return c.Encryption
 }
+
+func (c *BuiltinEvalContext) ListResults() *ListResultStore {
+	return c.Evaluator.ListResults
+}

@@ -55,6 +55,16 @@ type MockProvider struct {
 	ValidateEphemeralConfigRequest  providers.ValidateEphemeralConfigRequest
 	ValidateEphemeralConfigFn       func(providers.ValidateEphemeralConfigRequest) providers.ValidateEphemeralConfigResponse
 
+	ValidateListResourceConfigCalled   bool
+	ValidateListResourceConfigResponse *providers.ValidateListResourceConfigResponse
+	ValidateListResourceConfigRequest  providers.ValidateListResourceConfigRequest
+	ValidateListResourceConfigFn       func(providers.ValidateListResourceConfigRequest) providers.ValidateListResourceConfigResponse
+
+	ListResourceCalled   bool
+	ListResourceResponse *providers.ListResourceResponse
+	ListResourceRequest  providers.ListResourceRequest
+	ListResourceFn       func(providers.ListResourceRequest) providers.ListResourceResponse
+
 	UpgradeResourceStateCalled   bool
 	UpgradeResourceStateTypeName string
 	UpgradeResourceStateResponse *providers.UpgradeResourceStateResponse
@@ -267,6 +277,65 @@ func (p *MockProvider) ValidateEphemeralConfig(ctx context.Context, r providers.
 
 	if p.ValidateEphemeralConfigResponse != nil {
 		return *p.ValidateEphemeralConfigResponse
+	}
+
+	return resp
+}
+
+func (p *MockProvider) ValidateListResourceConfig(ctx context.Context, r providers.ValidateListResourceConfigRequest) (resp providers.ValidateListResourceConfigResponse) {
+	tracing.ContextProbeReport(ctx, 0)
+	p.Lock()
+	defer p.Unlock()
+
+	p.ValidateListResourceConfigCalled = true
+	p.ValidateListResourceConfigRequest = r
+
+	listSchema, ok := p.getProviderSchema().ListResources[r.TypeName]
+	if !ok {
+		resp.Diagnostics = resp.Diagnostics.Append(fmt.Errorf("no schema found for list resource %q", r.TypeName))
+		return resp
+	}
+	// Marshall the value to replicate behavior by the GRPC protocol
+	if _, err := msgpack.Marshal(r.Config, listSchema.Block.ImpliedType()); err != nil {
+		resp.Diagnostics = resp.Diagnostics.Append(err)
+		return resp
+	}
+
+	if p.ValidateListResourceConfigFn != nil {
+		return p.ValidateListResourceConfigFn(r)
+	}
+
+	if p.ValidateListResourceConfigResponse != nil {
+		return *p.ValidateListResourceConfigResponse
+	}
+
+	return resp
+}
+
+func (p *MockProvider) ListResource(ctx context.Context, r providers.ListResourceRequest) (resp providers.ListResourceResponse) {
+	tracing.ContextProbeReport(ctx, 0)
+	p.Lock()
+	defer p.Unlock()
+
+	p.ListResourceCalled = true
+	p.ListResourceRequest = r
+
+	listSchema, ok := p.getProviderSchema().ListResources[r.TypeName]
+	if !ok {
+		resp.Diagnostics = resp.Diagnostics.Append(fmt.Errorf("no schema found for list resource %q", r.TypeName))
+		return resp
+	}
+	if _, err := msgpack.Marshal(r.Config, listSchema.Block.ImpliedType()); err != nil {
+		resp.Diagnostics = resp.Diagnostics.Append(err)
+		return resp
+	}
+
+	if p.ListResourceFn != nil {
+		return p.ListResourceFn(r)
+	}
+
+	if p.ListResourceResponse != nil {
+		return *p.ListResourceResponse
 	}
 
 	return resp

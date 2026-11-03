@@ -141,6 +141,14 @@ func (f *fakeProviderClient) ReadDataSource(context.Context, providers.ReadDataS
 }
 
 // ValidateEphemeralConfig implements [providers.Interface].
+func (f *fakeProviderClient) ValidateListResourceConfig(context.Context, providers.ValidateListResourceConfigRequest) providers.ValidateListResourceConfigResponse {
+	panic("unimplemented")
+}
+
+func (f *fakeProviderClient) ListResource(context.Context, providers.ListResourceRequest) providers.ListResourceResponse {
+	panic("unimplemented")
+}
+
 func (f *fakeProviderClient) ValidateEphemeralConfig(context.Context, providers.ValidateEphemeralConfigRequest) providers.ValidateEphemeralConfigResponse {
 	panic("unimplemented")
 }

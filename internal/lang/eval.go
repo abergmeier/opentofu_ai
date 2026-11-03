@@ -472,6 +472,7 @@ type evalVarBuilder struct {
 	dataResources      map[string]map[string]cty.Value
 	managedResources   map[string]map[string]cty.Value
 	ephemeralResources map[string]map[string]cty.Value
+	listResources      map[string]map[string]cty.Value
 	wholeModules       map[string]cty.Value
 	inputVariables     map[string]cty.Value
 	localValues        map[string]cty.Value
@@ -491,6 +492,7 @@ func (s *Scope) newEvalVarBuilder() *evalVarBuilder {
 
 		dataResources:      map[string]map[string]cty.Value{},
 		ephemeralResources: map[string]map[string]cty.Value{},
+		listResources:      map[string]map[string]cty.Value{},
 		managedResources:   map[string]map[string]cty.Value{},
 		wholeModules:       map[string]cty.Value{},
 		inputVariables:     map[string]cty.Value{},
@@ -641,6 +643,8 @@ func (b *evalVarBuilder) putResourceValue(ctx context.Context, res addrs.Resourc
 		into = b.dataResources
 	case addrs.EphemeralResourceMode:
 		into = b.ephemeralResources
+	case addrs.ListResourceMode:
+		into = b.listResources
 	case addrs.InvalidResourceMode:
 		panic("BUG: got invalid resource mode")
 	default:
@@ -670,6 +674,7 @@ func (b *evalVarBuilder) buildAllVariablesInto(vals map[string]cty.Value) {
 
 	vals["data"] = cty.ObjectVal(buildResourceObjects(b.dataResources))
 	vals["ephemeral"] = cty.ObjectVal(buildResourceObjects(b.ephemeralResources))
+	vals["list"] = cty.ObjectVal(buildResourceObjects(b.listResources))
 	vals["module"] = cty.ObjectVal(b.wholeModules)
 	vals["var"] = cty.ObjectVal(b.inputVariables)
 	vals["local"] = cty.ObjectVal(b.localValues)

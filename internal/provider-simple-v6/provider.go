@@ -112,7 +112,6 @@ func (s simple) GetProviderSchema(_ context.Context) providers.GetProviderSchema
 	return s.schema
 }
 
-
 func (s simple) ValidateProviderConfig(_ context.Context, req providers.ValidateProviderConfigRequest) (resp providers.ValidateProviderConfigResponse) {
 	return resp
 }
@@ -122,6 +121,16 @@ func (s simple) ValidateResourceConfig(_ context.Context, req providers.Validate
 }
 
 func (s simple) ValidateDataResourceConfig(_ context.Context, req providers.ValidateDataResourceConfigRequest) (resp providers.ValidateDataResourceConfigResponse) {
+	return resp
+}
+
+func (s simple) ValidateListResourceConfig(_ context.Context, req providers.ValidateListResourceConfigRequest) (resp providers.ValidateListResourceConfigResponse) {
+	resp.Diagnostics = providers.ListResourceUnsupportedDiags(req.TypeName)
+	return resp
+}
+
+func (s simple) ListResource(_ context.Context, req providers.ListResourceRequest) (resp providers.ListResourceResponse) {
+	resp.Diagnostics = providers.ListResourceUnsupportedDiags(req.TypeName)
 	return resp
 }
 

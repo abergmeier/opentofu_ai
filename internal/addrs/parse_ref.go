@@ -200,6 +200,18 @@ func parseRef(traversal hcl.Traversal) (*Reference, tfdiags.Diagnostics) {
 		}
 		remain := traversal[1:] // trim off "ephemeral" so we can use our shared resource reference parser
 		return parseResourceRef(EphemeralResourceMode, rootRange, remain)
+	case "list":
+		if len(traversal) < 3 {
+			diags = diags.Append(&hcl.Diagnostic{
+				Severity: hcl.DiagError,
+				Summary:  "Invalid reference",
+				Detail:   `The "list" object must be followed by two attribute names: the list resource type and its name.`,
+				Subject:  traversal.SourceRange().Ptr(),
+			})
+			return nil, diags
+		}
+		remain := traversal[1:] // trim off "list" so we can use our shared resource reference parser
+		return parseResourceRef(ListResourceMode, rootRange, remain)
 	case "resource":
 		// This is an alias for the normal case of just using a managed resource
 		// type as a top-level symbol, which will serve as an escape mechanism
@@ -343,6 +355,8 @@ func parseResourceRef(mode ResourceMode, startRange hcl.Range, traversal hcl.Tra
 			what = "a data source"
 		case EphemeralResourceMode:
 			what = "an ephemeral resource"
+		case ListResourceMode:
+			what = "a list resource"
 		default:
 			what = "a resource type"
 		}

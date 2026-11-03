@@ -51,6 +51,7 @@ type Module struct {
 	ManagedResources   map[string]*Resource
 	DataResources      map[string]*Resource
 	EphemeralResources map[string]*Resource
+	ListResources      map[string]*Resource
 
 	Moved   []*Moved
 	Import  []*Import
@@ -111,6 +112,7 @@ type File struct {
 	ManagedResources   []*Resource
 	DataResources      []*Resource
 	EphemeralResources []*Resource
+	ListResources      []*Resource
 
 	Moved   []*Moved
 	Import  []*Import
@@ -194,6 +196,7 @@ func NewModule(primaryFiles, overrideFiles []*File, sourceDir string, load Selec
 		ManagedResources:    map[string]*Resource{},
 		DataResources:       map[string]*Resource{},
 		EphemeralResources:  map[string]*Resource{},
+		ListResources:       map[string]*Resource{},
 		Checks:              map[string]*Check{},
 		ProviderMetas:       map[addrs.Provider]*ProviderMeta{},
 		Tests:               map[string]*TestFile{},
@@ -348,6 +351,8 @@ func (m *Module) ResourceByAddr(addr addrs.Resource) *Resource {
 		return m.DataResources[key]
 	case addrs.EphemeralResourceMode:
 		return m.EphemeralResources[key]
+	case addrs.ListResourceMode:
+		return m.ListResources[key]
 	default:
 		return nil
 	}
@@ -545,6 +550,29 @@ func (m *Module) appendFile(file *File) hcl.Diagnostics {
 			continue
 		}
 		m.DataResources[key] = r
+	}
+
+	for _, r := range file.ListResources {
+		key := r.moduleUniqueKey()
+		if existing, exists := m.ListResources[key]; exists {
+			diags = append(diags, &hcl.Diagnostic{
+				Severity: hcl.DiagError,
+				Summary:  fmt.Sprintf("Duplicate list %q configuration", existing.Type),
+				Detail:   fmt.Sprintf("A %s list resource named %q was already declared at %s. Resource names must be unique per type in each module.", existing.Type, existing.Name, existing.DeclRange),
+				Subject:  &r.DeclRange,
+			})
+			continue
+		}
+		m.ListResources[key] = r
+
+		if r.ProviderConfigRef != nil {
+			r.Provider = m.ProviderForLocalConfig(r.ProviderConfigAddr())
+		} else {
+			implied, err := addrs.ParseProviderPart(r.Addr().ImpliedProvider())
+			if err == nil {
+				r.Provider = m.ImpliedProviderForUnqualifiedType(implied)
+			}
+		}
 	}
 
 	for _, r := range file.EphemeralResources {
@@ -857,6 +885,15 @@ func (m *Module) mergeFile(file *File) hcl.Diagnostics {
 		}
 		mergeDiags := existing.merge(r, m.ProviderRequirements.RequiredProviders)
 		diags = append(diags, mergeDiags...)
+	}
+
+	for _, r := range file.ListResources {
+		diags = append(diags, &hcl.Diagnostic{
+			Severity: hcl.DiagError,
+			Summary:  "Cannot override 'list' blocks",
+			Detail:   "List blocks can appear only in normal files, not in override files.",
+			Subject:  r.DeclRange.Ptr(),
+		})
 	}
 
 	for _, m := range file.Moved {

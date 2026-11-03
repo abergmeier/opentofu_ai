@@ -40,6 +40,12 @@ type Resource struct {
 
 	TriggersReplacement []hcl.Expression
 
+	// ListLimit and ListIncludeResource are populated only for
+	// Mode = addrs.ListResourceMode, from the "limit" and "include_resource"
+	// arguments of a "list" block. Both are optional.
+	ListLimit           hcl.Expression
+	ListIncludeResource hcl.Expression
+
 	// Managed is populated only for Mode = addrs.ManagedResourceMode,
 	// containing the additional fields that apply to managed resources.
 	// For all other resource modes, this field is nil.

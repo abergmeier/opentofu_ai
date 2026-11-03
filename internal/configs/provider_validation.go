@@ -461,6 +461,7 @@ func validateProviderConfigs(parentCall *ModuleCall, cfg *Config, noProviderConf
 	checkImpliedProviderNames(mod.ManagedResources)
 	checkImpliedProviderNames(mod.DataResources)
 	checkImpliedProviderNames(mod.EphemeralResources)
+	checkImpliedProviderNames(mod.ListResources)
 
 	// collect providers passed from the parent
 	if parentCall != nil {
@@ -527,6 +528,7 @@ func validateProviderConfigs(parentCall *ModuleCall, cfg *Config, noProviderConf
 	checkProviderKeys(mod.ManagedResources)
 	checkProviderKeys(mod.DataResources)
 	checkProviderKeys(mod.EphemeralResources)
+	checkProviderKeys(mod.ListResources)
 
 	// Verify that any module calls only refer to named providers, and that
 	// those providers will have a configuration at runtime. This way we can

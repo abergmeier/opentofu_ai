@@ -126,6 +126,9 @@ type MockEvalContext struct {
 	ImportResolverCalled  bool
 	ImportResolverResults *ImportResolver
 
+	ListResultsCalled  bool
+	ListResultsResults *ListResultStore
+
 	InstanceExpanderCalled   bool
 	InstanceExpanderExpander *instances.Expander
 }
@@ -341,6 +344,14 @@ func (c *MockEvalContext) MoveResults() refactoring.MoveResults {
 func (c *MockEvalContext) ImportResolver() *ImportResolver {
 	c.ImportResolverCalled = true
 	return c.ImportResolverResults
+}
+
+func (c *MockEvalContext) ListResults() *ListResultStore {
+	c.ListResultsCalled = true
+	if c.ListResultsResults == nil {
+		c.ListResultsResults = NewListResultStore()
+	}
+	return c.ListResultsResults
 }
 
 func (c *MockEvalContext) InstanceExpander() *instances.Expander {

@@ -290,6 +290,14 @@ func (m *managedResourceInstanceMockProvider) ValidateDataResourceConfig(context
 }
 
 // ValidateEphemeralConfig implements providers.Configured.
+func (m *managedResourceInstanceMockProvider) ValidateListResourceConfig(context.Context, providers.ValidateListResourceConfigRequest) providers.ValidateListResourceConfigResponse {
+	panic("unimplemented")
+}
+
+func (m *managedResourceInstanceMockProvider) ListResource(context.Context, providers.ListResourceRequest) providers.ListResourceResponse {
+	panic("unimplemented")
+}
+
 func (m *managedResourceInstanceMockProvider) ValidateEphemeralConfig(context.Context, providers.ValidateEphemeralConfigRequest) providers.ValidateEphemeralConfigResponse {
 	panic("unimplemented")
 }
